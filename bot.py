@@ -47,7 +47,7 @@ async def start(e):
     await bot.send_file(
         uid,
         "start.jpg",
-        caption="👋 **Welcome to Ads Automation Bot!**\n\nThis bot helps you manage and run ads easily using your connected accounts.\n\n✨ What you can do:\n• Add & manage multiple accounts\n• Set your ads message\n• Start / stop ads anytime\n• Track your profile & stats.\n\n👇 Use the buttons below to get started.",
+        caption="👋 **Welcome to Ads Automation Bot!**\n\n**This bot helps you manage and run ads easily using your connected accounts**.\n\n**What you can do:**\n**• Add & manage multiple accounts**\n**• Set your ads message**\n**• Start / stop ads anytime**\n**• Track your profile & stats.**\n\n**👇 Use the buttons below to get started.**",
         buttons=MAIN_BTNS
     )
 
@@ -238,10 +238,10 @@ async def profile_cmd(e):
     accs = cur.fetchone()[0]
 
     await e.reply(
-        f"👤 {u.first_name}\n"
-        f"ID: `{uid}`\n\n"
-        f"Accounts: {accs}\n"
-        f"Sent: {sent}"
+        f"👤 **NAME** : {u.first_name}\n\n"
+        f"🆔 **USER ID**: `{uid}`\n\n"
+        f"🎗️ **ACCOUNTS**: {accs}\n\n"
+        f"💬 **TOTAL MSG SENT**: {sent}"
     )
 
 # ===== HELP =====
