@@ -44,7 +44,7 @@ async def start(e):
     cur.execute("INSERT OR IGNORE INTO users(user_id) VALUES(?)", (uid,))
     conn.commit()
 
-    if not approved(uid):
+    if uid != ADMIN_ID and not approved(uid):
         return await e.reply(
             "⚠️ **Access is restricted**.\n\n**Only approved users can use this bot.**\n\n **Please Contact Admin.**",
             buttons=[[Button.url("👤 Contact Admin", f"https://t.me/{ADMIN_USERNAME}")]]
