@@ -31,8 +31,8 @@ def approved(uid):
 
 # ===== BUTTONS =====
 MAIN_BTNS = [
-    [Button.inline("➕ Add Account", b"add"), Button.inline("✏️ Set Ads Message", b"set")],
-    [Button.inline("⏱ Set Delay", b"time"), Button.inline("📋 Accounts lists", b"list")],
+    [Button.inline("➕ Add Account", b"add"), Button.inline("✏️ Set Ads Msg", b"set")],
+    [Button.inline("⏱ Set Delay", b"time"), Button.inline("📋 Accounts list", b"list")],
     [Button.inline("🚀 Start Ads", b"send"), Button.inline("🛑 Stop Ads", b"stop")],
     [Button.inline("👤 Profile", b"profile"), Button.inline("❓ Help", b"help")]
 ]
@@ -46,14 +46,14 @@ async def start(e):
 
     if not approved(uid):
         return await e.reply(
-            "❌ You are not authorised",
+            "⚠️ **Access is restricted**.\n\n**Only approved users can use this bot.**\n\n **Please Contact Admin.**",
             buttons=[[Button.url("👤 Contact Admin", f"https://t.me/{ADMIN_USERNAME}")]]
         )
 
     await bot.send_file(
         uid,
         "start.jpg",
-        caption="👋 **Welcome to Ads Automation Bot!**\n\nThis bot helps you manage and run ads easily using your connected accounts.\n\n✨ What you can do:\n• Add & manage multiple accounts\n• Set your ads message\n• Start / stop ads anytime\n• Track your profile & stats.\n\n⚠️ Access is restricted.\nOnly approved users can use this bot.\n\n👇 Use the buttons below to get started.",
+        caption="👋 **Welcome to Ads Automation Bot!**\n\nThis bot helps you manage and run ads easily using your connected accounts.\n\n✨ What you can do:\n• Add & manage multiple accounts\n• Set your ads message\n• Start / stop ads anytime\n• Track your profile & stats.\n\n👇 Use the buttons below to get started.",
         buttons=MAIN_BTNS
     )
 
@@ -255,7 +255,7 @@ async def help_cmd(e):
     "\n• **Set Message**"
     "\n  Define the advertisement content."
     "\n\n• **Start Ads**"
-    "\n  Start sending ads to configured targets."
+    "\n  Start sending ads to chats"
     "\n\n• **Stop Ads**"
     "\n  Stop all active ad campaigns instantly."
     "\n\n────────────────────────"
@@ -268,7 +268,7 @@ async def help_cmd(e):
     "\n────────────────────────"
     "\n• Users are responsible for complying with Telegram policies"
     "\n• Any misuse or abuse may result in access restrictions"
-    "\n\n⚠️ **ADMIN ID **: @BlazeNXT"
+    "\n⚠️**ADMIN**: @BlazeNXT"
     )
 
 bot.run_until_disconnected()
