@@ -58,7 +58,7 @@ async def callbacks(e):
 
     if uid != ADMIN_ID:
         if not approved(uid):
-            return await e.answer("Not authorised", alert=True)
+            return await e.answer("⚠️ Access is restricted.\n\nOnly approved users can use this bot.\n\nPlease Contact Admin.\n\nAdmin Username: @BlazeNXT", alert=True)
 
     data = e.data.decode()
     await e.answer()
