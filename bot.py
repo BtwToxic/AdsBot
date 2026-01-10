@@ -1,9 +1,15 @@
 import asyncio
+from datetime import datetime
+import pytz
+
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError
 from config import *
 from db import cur, conn
+
+# ===== TIMEZONE =====
+IST = pytz.timezone("Asia/Kolkata")
 
 # ===== DEVICE INFO =====
 DEVICE_NAME = "𝗗𝗲𝘃 —🇮🇳 @iscxm"
@@ -28,6 +34,19 @@ def approved(uid):
     cur.execute("SELECT approved FROM users WHERE user_id=?", (uid,))
     r = cur.fetchone()
     return r and r[0] == 1
+
+def parse_delay(txt):
+    txt = txt.lower().strip()
+    if txt.endswith("m"):
+        sec = int(txt[:-1]) * 60
+    elif txt.endswith("s"):
+        sec = int(txt[:-1])
+    else:
+        sec = int(txt)
+    return max(sec, 5)
+
+def parse_time(txt):
+    return datetime.strptime(txt.upper().strip(), "%I%p").time()
 
 # ===== BUTTONS =====
 MAIN_BTNS = [
@@ -56,18 +75,21 @@ async def start(e):
 async def callbacks(e):
     uid = e.sender_id
 
-    if uid != ADMIN_ID:
-        if not approved(uid):
-            return await e.answer("⚠️ Access is restricted.\n\nOnly approved users can use this bot.\n\nPlease Contact Admin.\n\nAdmin Username: @BlazeNXT", alert=True)
+    if uid != ADMIN_ID and not approved(uid):
+        return await e.answer(
+            "⚠️ Access is restricted.\n\nOnly approved users can use this bot.\n\nPlease Contact Admin.\n\nAdmin Username: @BlazeNXT",
+            alert=True
+        )
 
     data = e.data.decode()
     await e.answer()
 
     class FakeEvent:
         sender_id = uid
-        text = ""
-        async def reply(self, *a, **k): return await bot.send_message(uid, *a, **k)
-        async def get_sender(self): return await bot.get_entity(uid)
+        async def reply(self, *a, **k):
+            return await bot.send_message(uid, *a, **k)
+        async def get_sender(self):
+            return await bot.get_entity(uid)
 
     fe = FakeEvent()
 
@@ -80,12 +102,15 @@ async def callbacks(e):
     elif data == "profile": await profile_cmd(fe)
     elif data == "help": await help_cmd(fe)
 
-# ===== APPROVE (TEXT ONLY) =====
+# ===== APPROVE =====
 @bot.on(events.NewMessage(pattern="/approve"))
 async def approve_cmd(e):
-    if e.sender_id != ADMIN_ID: return
-    try: uid = int(e.text.split()[1])
-    except: return await e.reply("Usage: /approve user_id")
+    if e.sender_id != ADMIN_ID:
+        return
+    try:
+        uid = int(e.text.split()[1])
+    except:
+        return await e.reply("Usage: /approve user_id")
 
     cur.execute("INSERT OR IGNORE INTO users(user_id, approved) VALUES(?,1)", (uid,))
     cur.execute("UPDATE users SET approved=1 WHERE user_id=?", (uid,))
@@ -99,16 +124,7 @@ async def add_account(e):
         await conv.send_message("📱 Send Phone Number: \n\n Example : +91×××××××")
         phone = (await conv.get_response()).text.strip()
 
-        client = TelegramClient(
-            StringSession(),
-            API_ID,
-            API_HASH,
-            device_model=DEVICE_NAME,
-            system_version=SYSTEM_VERSION,
-            app_version=APP_VERSION,
-            lang_code="en"
-        )
-
+        client = TelegramClient(StringSession(), API_ID, API_HASH)
         await client.connect()
         await client.send_code_request(phone)
 
@@ -131,17 +147,19 @@ async def add_account(e):
 
         await conv.send_message(f"✅ **Account Added** `{phone}`")
 
-
-# ===== REMOVE (TEXT ONLY) =====
+# ===== REMOVE =====
 @bot.on(events.NewMessage(pattern="/remove"))
 async def remove_account(e):
     uid = e.sender_id
-    try: idx = int(e.text.split()[1]) - 1
-    except: return await e.reply("Usage: /remove {number}")
+    try:
+        idx = int(e.text.split()[1]) - 1
+    except:
+        return await e.reply("Usage: /remove {number}")
 
     cur.execute("SELECT id, phone FROM accounts WHERE owner=?", (uid,))
     rows = cur.fetchall()
-    if idx < 0 or idx >= len(rows): return await e.reply("Invalid number")
+    if idx < 0 or idx >= len(rows):
+        return await e.reply("Invalid number")
 
     cur.execute("DELETE FROM accounts WHERE id=?", (rows[idx][0],))
     conn.commit()
@@ -157,30 +175,54 @@ async def set_msg(e):
         conn.commit()
         await conv.send_message("✅ Ads Msg Saved")
 
-# ===== SET TIME (INLINE SAFE) =====
+# ===== SET DELAY =====
 async def set_time_inline(uid):
     async with bot.conversation(uid) as conv:
         await conv.send_message("⏱ Delay in seconds:")
-        t = int((await conv.get_response()).text.strip())
+        raw = (await conv.get_response()).text.strip()
+        t = parse_delay(raw)
         cur.execute("UPDATE users SET delay=? WHERE user_id=?", (t, uid))
         conn.commit()
         await conv.send_message(f"✅ Delay set {t}s")
+
+# ===== AUTO STOP =====
+@bot.on(events.NewMessage(pattern="/auto"))
+async def auto_stop(e):
+    uid = e.sender_id
+    async with bot.conversation(uid) as conv:
+        await conv.send_message("🕒 Kis time ads **AUTO STOP** karna hai? (Example: 11PM)")
+        t = parse_time((await conv.get_response()).text)
+        cur.execute("UPDATE users SET auto_stop=? WHERE user_id=?", (t.strftime("%H:%M"), uid))
+        conn.commit()
+        await conv.send_message("✅ Auto stop time saved")
+
+# ===== AUTO RESEND =====
+@bot.on(events.NewMessage(pattern="/resend"))
+async def auto_resend(e):
+    uid = e.sender_id
+    async with bot.conversation(uid) as conv:
+        await conv.send_message("🕗 Kis time ads **AUTO START** karna hai? (Example: 8AM)")
+        t = parse_time((await conv.get_response()).text)
+        cur.execute("UPDATE users SET auto_start=? WHERE user_id=?", (t.strftime("%H:%M"), uid))
+        conn.commit()
+        await conv.send_message("✅ Auto start time saved")
 
 # ===== LIST =====
 async def list_acc(e):
     uid = e.sender_id
     cur.execute("SELECT phone FROM accounts WHERE owner=?", (uid,))
     rows = cur.fetchall()
-    if not rows: return await e.reply("No accounts")
+    if not rows:
+        return await e.reply("No accounts")
     await e.reply("\n".join(f"{i+1}. {r[0]}" for i, r in enumerate(rows)))
 
-# ===== ADS LOOP (GROUPS ONLY) =====
+# ===== ADS LOOP (GROUPS) =====
 async def ads_loop(uid):
-    cur.execute("SELECT message, delay FROM users WHERE user_id=?", (uid,))
+    cur.execute("SELECT message, delay, auto_stop FROM users WHERE user_id=?", (uid,))
     row = cur.fetchone()
     if not row:
         return
-    msg, delay = row
+    msg, delay, auto_stop = row
 
     cur.execute("SELECT session FROM accounts WHERE owner=?", (uid,))
     sessions = cur.fetchall()
@@ -197,33 +239,32 @@ async def ads_loop(uid):
             if cur.fetchone()[0] == 0:
                 break
 
+            if auto_stop:
+                now = datetime.now(IST).time()
+                st = datetime.strptime(auto_stop, "%H:%M").time()
+                if now >= st:
+                    cur.execute("UPDATE users SET running=0 WHERE user_id=?", (uid,))
+                    conn.commit()
+                    break
+
             for c in clients:
                 async for d in c.iter_dialogs():
-                    # 🔥 STRICT GROUP FILTER
                     if not d.is_group:
                         continue
-
-                    # skip broadcast channels
-                    if d.is_channel and not getattr(d.entity, "megagroup", False):
-                        continue
-
-                    cur.execute("SELECT running FROM users WHERE user_id=?", (uid,))
-                    if cur.fetchone()[0] == 0:
-                        break
-
                     try:
                         await c.send_message(d.id, msg)
                         cur.execute(
-                            "UPDATE users SET sent_count = sent_count + 1 WHERE user_id=?",
+                            "UPDATE users SET sent_count=sent_count+1 WHERE user_id=?",
                             (uid,)
                         )
                         conn.commit()
                         await asyncio.sleep(delay)
-                    except Exception:
+                    except:
                         pass
     finally:
         for c in clients:
             await c.disconnect()
+
 # ===== SEND =====
 async def start_ads(e):
     uid = e.sender_id
@@ -242,7 +283,8 @@ async def stop_ads(e):
     cur.execute("UPDATE users SET running=0 WHERE user_id=?", (uid,))
     conn.commit()
     task = tasks.pop(uid, None)
-    if task: task.cancel()
+    if task:
+        task.cancel()
     await e.reply("🛑 Ads Stopped")
 
 # ===== PROFILE =====
@@ -262,7 +304,7 @@ async def profile_cmd(e):
         f"💬 **TOTAL MSG SENT**: {sent}"
     )
 
-# ===== HELP =====
+# ===== HELP (UNCHANGED) =====
 async def help_cmd(e):
     await e.reply(
     "**Ads Automation Bot — Help & Usage Guide**"
