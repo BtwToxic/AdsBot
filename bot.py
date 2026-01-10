@@ -1,12 +1,15 @@
 import re
+import asyncio
 from datetime import datetime, timedelta
 import pytz
-import asyncio
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError
 from config import *
 from db import cur, conn
+
+# ===== IST =====
+IST = pytz.timezone("Asia/Kolkata")
 
 # ===== DEVICE INFO =====
 DEVICE_NAME = "𝗗𝗲𝘃 —🇮🇳 @iscxm"
@@ -55,7 +58,6 @@ async def start(e):
         buttons=MAIN_BTNS
     )
 
-
 # ===== CALLBACK CORE =====
 @bot.on(events.CallbackQuery)
 async def callbacks(e):
@@ -63,7 +65,10 @@ async def callbacks(e):
 
     if uid != ADMIN_ID:
         if not approved(uid):
-            return await e.answer("⚠️ Access is restricted.\n\nOnly approved users can use this bot.\n\nPlease Contact Admin.\n\nAdmin Username: @BlazeNXT", alert=True)
+            return await e.answer(
+                "⚠️ Access is restricted.\n\nOnly approved users can use this bot.\n\nPlease Contact Admin.\n\nAdmin Username: @BlazeNXT",
+                alert=True
+            )
 
     data = e.data.decode()
     await e.answer()
@@ -71,8 +76,8 @@ async def callbacks(e):
     class FakeEvent:
         sender_id = uid
         text = ""
-        async def reply(self, *a, **k): return await bot.send_message(uid, *a, **k)
-        async def get_sender(self): return await bot.get_entity(uid)
+        async def reply(self, *a, **k):
+            return await bot.send_message(uid, *a, **k)
 
     fe = FakeEvent()
 
@@ -85,18 +90,6 @@ async def callbacks(e):
     elif data == "profile": await profile_cmd(fe)
     elif data == "help": await help_cmd(fe)
 
-# ===== APPROVE (TEXT ONLY) =====
-@bot.on(events.NewMessage(pattern="/approve"))
-async def approve_cmd(e):
-    if e.sender_id != ADMIN_ID: return
-    try: uid = int(e.text.split()[1])
-    except: return await e.reply("Usage: /approve user_id")
-
-    cur.execute("INSERT OR IGNORE INTO users(user_id, approved) VALUES(?,1)", (uid,))
-    cur.execute("UPDATE users SET approved=1 WHERE user_id=?", (uid,))
-    conn.commit()
-    await e.reply("✅ User Approved")
-
 # ===== ADD ACCOUNT =====
 async def add_account(e):
     uid = e.sender_id
@@ -104,16 +97,7 @@ async def add_account(e):
         await conv.send_message("📱 Send Phone Number: \n\n Example : +91×××××××")
         phone = (await conv.get_response()).text.strip()
 
-        client = TelegramClient(
-            StringSession(),
-            API_ID,
-            API_HASH,
-            device_model=DEVICE_NAME,
-            system_version=SYSTEM_VERSION,
-            app_version=APP_VERSION,
-            lang_code="en"
-        )
-
+        client = TelegramClient(StringSession(), API_ID, API_HASH)
         await client.connect()
         await client.send_code_request(phone)
 
@@ -127,30 +111,12 @@ async def add_account(e):
             pwd = (await conv.get_response()).text.strip()
             await client.sign_in(password=pwd)
 
-        session = client.session.save()
         cur.execute(
             "INSERT INTO accounts(owner, phone, session) VALUES(?,?,?)",
-            (uid, phone, session)
+            (uid, phone, client.session.save())
         )
         conn.commit()
-
         await conv.send_message(f"✅ **Account Added** `{phone}`")
-
-
-# ===== REMOVE (TEXT ONLY) =====
-@bot.on(events.NewMessage(pattern="/remove"))
-async def remove_account(e):
-    uid = e.sender_id
-    try: idx = int(e.text.split()[1]) - 1
-    except: return await e.reply("Usage: /remove {number}")
-
-    cur.execute("SELECT id, phone FROM accounts WHERE owner=?", (uid,))
-    rows = cur.fetchall()
-    if idx < 0 or idx >= len(rows): return await e.reply("Invalid number")
-
-    cur.execute("DELETE FROM accounts WHERE id=?", (rows[idx][0],))
-    conn.commit()
-    await e.reply(f"🗑 **Account Removed** `{rows[idx][1]}`")
 
 # ===== SET MESSAGE =====
 async def set_msg(e):
@@ -162,15 +128,13 @@ async def set_msg(e):
         conn.commit()
         await conv.send_message("✅ Ads Msg Saved")
 
-# ===== SET TIME (INLINE SAFE) =====
+# ===== SET TIME =====
 async def set_time_inline(uid):
     async with bot.conversation(uid) as conv:
         await conv.send_message("⏱ Delay in seconds (minimum 10)\n\n**Default 10 sec:**")
         t = int((await conv.get_response()).text.strip())
-
         if t < 10:
             t = 10
-
         cur.execute("UPDATE users SET delay=? WHERE user_id=?", (t, uid))
         conn.commit()
         await conv.send_message(f"✅ Delay set to {t}s")
@@ -180,10 +144,11 @@ async def list_acc(e):
     uid = e.sender_id
     cur.execute("SELECT phone FROM accounts WHERE owner=?", (uid,))
     rows = cur.fetchall()
-    if not rows: return await e.reply("No accounts")
+    if not rows:
+        return await e.reply("No accounts")
     await e.reply("\n".join(f"{i+1}. {r[0]}" for i, r in enumerate(rows)))
-    
-# ===== ADS LOOP (ALL GROUPS FIXED + SLEEP SAFE) =====
+
+# ===== ADS LOOP (ONLY GROUPS) =====
 async def ads_loop(uid):
     cur.execute("SELECT message, delay FROM users WHERE user_id=?", (uid,))
     row = cur.fetchone()
@@ -204,20 +169,21 @@ async def ads_loop(uid):
         while True:
             cur.execute("SELECT running FROM users WHERE user_id=?", (uid,))
             if cur.fetchone()[0] == 0:
-                break
+                return
 
             for c in clients:
                 async for d in c.iter_dialogs():
 
-                    entity = d.entity
-
+                    # ❌ NO DMs / bots
                     if d.is_user:
                         continue
 
-                    if d.is_channel and not getattr(entity, "megagroup", False):
+                    # ❌ NO channels (broadcast)
+                    if d.is_channel and not getattr(d.entity, "megagroup", False):
                         continue
 
-                    if not (d.is_group or (d.is_channel and entity.megagroup)):
+                    # ✅ ONLY groups & supergroups
+                    if not (d.is_group or (d.is_channel and d.entity.megagroup)):
                         continue
 
                     cur.execute("SELECT running FROM users WHERE user_id=?", (uid,))
@@ -226,13 +192,13 @@ async def ads_loop(uid):
 
                     try:
                         await c.send_message(d.id, msg)
-
                         cur.execute(
                             "UPDATE users SET sent_count = sent_count + 1 WHERE user_id=?",
                             (uid,)
                         )
                         conn.commit()
 
+                        # breakable delay
                         for _ in range(delay):
                             cur.execute("SELECT running FROM users WHERE user_id=?", (uid,))
                             if cur.fetchone()[0] == 0:
@@ -241,84 +207,65 @@ async def ads_loop(uid):
 
                     except Exception:
                         pass
-
     finally:
         for c in clients:
             await c.disconnect()
 
-# ===== SLEEP COMMAND =====
+# ===== SLEEP COMMAND (IST) =====
 @bot.on(events.NewMessage(pattern="/sleep"))
 async def sleep_cmd(e):
     uid = e.sender_id
 
     try:
-        time_str = e.text.split(maxsplit=1)[1].strip().upper()
+        time_str = e.text.split(maxsplit=1)[1].upper()
     except:
-        return await e.reply(
-            "❌ Usage:\n"
-            "`/sleep 2AM`\n"
-            "`/sleep 2:30PM`"
-        )
+        return await e.reply("❌ Usage:\n`/sleep 2AM`\n`/sleep 2:30PM`")
 
     m = re.match(r"^(\d{1,2})(?::(\d{2}))?(AM|PM)$", time_str)
     if not m:
         return await e.reply("❌ Invalid time format")
 
-    hour = int(m.group(1))
-    minute = int(m.group(2) or 0)
-    period = m.group(3)
+    h = int(m.group(1))
+    mnt = int(m.group(2) or 0)
+    p = m.group(3)
 
-    if hour < 1 or hour > 12 or minute > 59:
-        return await e.reply("❌ Invalid time")
+    if p == "PM" and h != 12: h += 12
+    if p == "AM" and h == 12: h = 0
 
-    if period == "PM" and hour != 12:
-        hour += 12
-    if period == "AM" and hour == 12:
-        hour = 0
-
-    ist = pytz.timezone("Asia/Kolkata")
-    now = datetime.now(ist)
-
-    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    now = datetime.now(IST)
+    target = now.replace(hour=h, minute=mnt, second=0, microsecond=0)
     if target <= now:
         target += timedelta(days=1)
 
-    seconds = int((target - now).total_seconds())
+    sec = int((target - now).total_seconds())
 
     old = sleep_tasks.pop(uid, None)
     if old:
         old.cancel()
-    await e.reply("⏳ Previous sleep timer updated.")
-    
-    sleep_tasks[uid] = asyncio.create_task(auto_sleep(uid, seconds))
+        await e.reply("⏳ Previous sleep timer updated.")
 
+    sleep_tasks[uid] = asyncio.create_task(auto_sleep(uid, sec))
     await e.reply(f"😴 Ads will auto-stop at **{time_str} IST**")
 
-# ===== AUTO SLEEP TASK =====
-async def auto_sleep(uid, seconds):
+# ===== AUTO SLEEP =====
+async def auto_sleep(uid, sec):
     try:
-        await asyncio.sleep(seconds)
+        await asyncio.sleep(sec)
     except asyncio.CancelledError:
         return
 
     cur.execute("UPDATE users SET running=0 WHERE user_id=?", (uid,))
     conn.commit()
-
-    task = tasks.pop(uid, None)
-    if task:
-        task.cancel()
+    tasks.pop(uid, None)
 
     await bot.send_message(
         uid,
         "🛑 **Auto Sleep Activated**\nAds stopped automatically."
     )
+
 # ===== SEND =====
 async def start_ads(e):
     uid = e.sender_id
-    sleep = sleep_tasks.pop(uid, None)
-    if sleep:
-        sleep.cancel()
-
     cur.execute("UPDATE users SET running=1 WHERE user_id=?", (uid,))
     conn.commit()
 
@@ -327,12 +274,13 @@ async def start_ads(e):
 
     tasks[uid] = asyncio.create_task(ads_loop(uid))
     await e.reply("🚀 Ads started")
-    
+
 # ===== STOP =====
 async def stop_ads(e):
     uid = e.sender_id
     cur.execute("UPDATE users SET running=0 WHERE user_id=?", (uid,))
     conn.commit()
+
     task = tasks.pop(uid, None)
     if task:
         task.cancel()
@@ -363,40 +311,23 @@ async def profile_cmd(e):
         f"💬 **TOTAL MSG SENT**: {sent}\n\n"
         f"😴 **AUTO SLEEP**: {sleep_status}"
     )
+
 # ===== HELP =====
 async def help_cmd(e):
     await e.reply(
-    "**Ads Automation Bot — Help & Usage Guide**"
-    "\n\n────────────────────────"
-    "\n**ACCOUNT MANAGEMENT**"
-    "\n────────────────────────"
-    "\n• **Add Account**"
-    "\n  Securely connect a new account to the bot."
-    "\n\n• **Account List**"
-    "\n  View all accounts linked to your profile."
-    "\n\n• **Remove Account**"
-    "\n  Remove an account using:"
-    "\n  **/remove <account_number>**"
-    "\n\n────────────────────────"
-    "\n**ADS & CAMPAIGN SETUP**"
-    "\n────────────────────────"
-    "\n• **Set Message**"
-    "\n  Define the advertisement content."
-    "\n\n• **Start Ads**"
-    "\n  Start sending ads to chats"
-    "\n\n• **Stop Ads**"
-    "\n  Stop all active ad campaigns instantly."
-    "\n\n────────────────────────"
-    "\n**PROFILE & STATISTICS**"
-    "\n────────────────────────"
-    "\n• **My Profile**"
-    "\n  View your accounts, targets, and usage statistics."
-    "\n\n────────────────────────"
-    "\n**USAGE POLICY**"
-    "\n────────────────────────"
-    "\n• Users are responsible for complying with Telegram policies"
-    "\n• Any misuse or abuse may result in access restrictions"
-    "\n⚠️**ADMIN**: @BlazeNXT"
+        "**Ads Automation Bot — Help & Usage Guide**"
+        "\n\n────────────────────────"
+        "\n**ACCOUNT MANAGEMENT**"
+        "\n• Add Account"
+        "\n• Account List"
+        "\n• Remove Account"
+        "\n\n**ADS & CAMPAIGN SETUP**"
+        "\n• Set Message"
+        "\n• Start Ads"
+        "\n• Stop Ads"
+        "\n\n**PROFILE & STATISTICS**"
+        "\n• My Profile"
+        "\n\n⚠️**ADMIN**: @BlazeNXT"
     )
 
 bot.run_until_disconnected()
