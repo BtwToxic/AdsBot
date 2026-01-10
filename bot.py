@@ -97,7 +97,15 @@ async def add_account(e):
         await conv.send_message("📱 Send Phone Number: \n\n Example : +91×××××××")
         phone = (await conv.get_response()).text.strip()
 
-        client = TelegramClient(StringSession(), API_ID, API_HASH)
+        client = TelegramClient(
+            StringSession(),
+            API_ID,
+            API_HASH,
+            device_model=DEVICE_NAME,
+            system_version=SYSTEM_VERSION,
+            app_version=APP_VERSION,
+            lang_code="en"
+        )
         await client.connect()
         await client.send_code_request(phone)
 
