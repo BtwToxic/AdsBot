@@ -173,8 +173,7 @@ async def list_acc(e):
     rows = cur.fetchall()
     if not rows: return await e.reply("No accounts")
     await e.reply("\n".join(f"{i+1}. {r[0]}" for i, r in enumerate(rows)))
-
-# ===== ADS LOOP (GROUPS ONLY) =====
+# ===== ADS LOOP (ALL GROUPS FIXED) =====
 async def ads_loop(uid):
     cur.execute("SELECT message, delay FROM users WHERE user_id=?", (uid,))
     row = cur.fetchone()
@@ -199,12 +198,21 @@ async def ads_loop(uid):
 
             for c in clients:
                 async for d in c.iter_dialogs():
-                    # 🔥 STRICT GROUP FILTER
-                    if not d.is_group:
+
+                    entity = d.entity
+
+                    # ❌ Skip private chats (DMs, bots, saved msgs)
+                    if d.is_user:
                         continue
 
-                    # skip broadcast channels
-                    if d.is_channel and not getattr(d.entity, "megagroup", False):
+                    # ❌ Skip broadcast channels
+                    if d.is_channel and not getattr(entity, "megagroup", False):
+                        continue
+
+                    # ✅ Allow:
+                    # 1. Normal groups
+                    # 2. Supergroups (megagroup)
+                    if not (d.is_group or (d.is_channel and entity.megagroup)):
                         continue
 
                     cur.execute("SELECT running FROM users WHERE user_id=?", (uid,))
@@ -219,11 +227,13 @@ async def ads_loop(uid):
                         )
                         conn.commit()
                         await asyncio.sleep(delay)
-                    except Exception:
+                    except Exception as ex:
                         pass
+
     finally:
         for c in clients:
             await c.disconnect()
+
 # ===== SEND =====
 async def start_ads(e):
     uid = e.sender_id
