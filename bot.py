@@ -1,3 +1,6 @@
+import re
+from datetime import datetime, timedelta
+import pytz
 import asyncio
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
@@ -50,6 +53,7 @@ async def start(e):
         caption="👋 **Welcome to Ads Automation Bot!**\n\n**This bot helps you manage and run ads easily using your connected accounts**.\n\n**What you can do:**\n**• Add & manage multiple accounts**\n**• Set your ads message**\n**• Start / stop ads anytime**\n**• Track your profile & stats.**\n\n**👇 Use the buttons below to get started.**",
         buttons=MAIN_BTNS
     )
+
 
 # ===== CALLBACK CORE =====
 @bot.on(events.CallbackQuery)
@@ -235,6 +239,68 @@ async def ads_loop(uid):
     finally:
         for c in clients:
             await c.disconnect()
+
+#====== SLEEP =====
+@bot.on(events.NewMessage(pattern="/sleep"))
+async def sleep_cmd(e):
+    uid = e.sender_id
+
+    try:
+        time_str = e.text.split(maxsplit=1)[1].strip().upper()
+    except:
+        return await e.reply(
+            "❌ Usage:\n"
+            "`/sleep 2AM`\n"
+            "`/sleep 2:30PM`"
+        )
+
+    # validate format
+    m = re.match(r"^(\d{1,2})(?::(\d{2}))?(AM|PM)$", time_str)
+    if not m:
+        return await e.reply("❌ Invalid time format")
+
+    hour = int(m.group(1))
+    minute = int(m.group(2) or 0)
+    period = m.group(3)
+
+    if hour < 1 or hour > 12 or minute > 59:
+        return await e.reply("❌ Invalid time")
+
+    if period == "PM" and hour != 12:
+        hour += 12
+    if period == "AM" and hour == 12:
+        hour = 0
+
+    ist = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(ist)
+
+    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if target <= now:
+        target += timedelta(days=1)
+
+    seconds = int((target - now).total_seconds())
+
+    asyncio.create_task(auto_sleep(uid, seconds))
+
+    await e.reply(f"😴 Ads will auto-stop at **{time_str} IST**")
+
+#sleep part
+async def auto_sleep(uid, seconds):
+    await asyncio.sleep(seconds)
+
+    # stop ads
+    cur.execute("UPDATE users SET running=0 WHERE user_id=?", (uid,))
+    conn.commit()
+
+    task = tasks.pop(uid, None)
+    if task:
+        task.cancel()
+
+    await bot.send_message(
+        uid,
+        "🛑 **Auto Sleep Activated**\nAds stopped automatically."
+    )
+
 
 # ===== SEND =====
 async def start_ads(e):
