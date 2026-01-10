@@ -160,11 +160,15 @@ async def set_msg(e):
 # ===== SET TIME (INLINE SAFE) =====
 async def set_time_inline(uid):
     async with bot.conversation(uid) as conv:
-        await conv.send_message("⏱ Delay in seconds:")
+        await conv.send_message("⏱ Delay in seconds (minimum 10)\n\n**Default 10 sec:**")
         t = int((await conv.get_response()).text.strip())
+
+        if t < 10:
+            t = 10
+
         cur.execute("UPDATE users SET delay=? WHERE user_id=?", (t, uid))
         conn.commit()
-        await conv.send_message(f"✅ Delay set {t}s")
+        await conv.send_message(f"✅ Delay set to {t}s")
 
 # ===== LIST =====
 async def list_acc(e):
@@ -201,17 +205,15 @@ async def ads_loop(uid):
 
                     entity = d.entity
 
-                    # ❌ Skip private chats (DMs, bots, saved msgs)
+                    
                     if d.is_user:
                         continue
 
-                    # ❌ Skip broadcast channels
+                    
                     if d.is_channel and not getattr(entity, "megagroup", False):
                         continue
 
-                    # ✅ Allow:
-                    # 1. Normal groups
-                    # 2. Supergroups (megagroup)
+
                     if not (d.is_group or (d.is_channel and entity.megagroup)):
                         continue
 
