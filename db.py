@@ -1,29 +1,14 @@
-import sqlite3
+from pymongo import MongoClient
+from config import MONGO_URL
 
-conn = sqlite3.connect("data.db", check_same_thread=False)
-cur = conn.cursor()
+# ===== CONNECT =====
+mongo = MongoClient(MONGO_URL)
+db = mongo.adsbot  
 
-# ===== USERS TABLE =====
-cur.execute("""
-CREATE TABLE IF NOT EXISTS users (
-  user_id INTEGER PRIMARY KEY,
-  approved INTEGER DEFAULT 0,
-  message TEXT DEFAULT '',
-  delay INTEGER DEFAULT 10,
-  running INTEGER DEFAULT 0,
-  sent_count INTEGER DEFAULT 0,
-  sleep_at TEXT DEFAULT NULL
-)
-""")
+# ===== COLLECTIONS =====
+users = db.users
+accounts = db.accounts
 
-# ===== ACCOUNTS TABLE =====
-cur.execute("""
-CREATE TABLE IF NOT EXISTS accounts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  owner INTEGER,
-  phone TEXT,
-  session TEXT
-)
-""")
-
-conn.commit()
+# ===== INDEX (IMPORTANT) =====
+users.create_index("user_id", unique=True)
+accounts.create_index("owner")
