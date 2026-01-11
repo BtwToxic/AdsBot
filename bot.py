@@ -17,13 +17,11 @@ from db import (
 # ===== IST =====
 IST = pytz.timezone("Asia/Kolkata")
 
-UPI_ID = "toxic@xyz"
-
 # ===== DEVICE INFO =====
 DEVICE_NAME = "𝗗𝗲𝘃 —🇮🇳 @iscxm"
 APP_VERSION = "—Dev"
 SYSTEM_VERSION = "Sex Randi Version 2.0 Join — @TechBotss"
-
+UPI_ID = "hh@6"
 # ===== BOT =====
 bot = TelegramClient(
     "bot",
@@ -44,6 +42,18 @@ def approved(uid):
     u = user_get(uid)
     return bool(u and u.get("approved", 0) == 1)
 
+def parse_delay(text: str):
+    t = text.strip().lower()
+    if t.endswith("s") and t[:-1].isdigit():
+        return int(t[:-1])
+    if t.endswith("m") and t[:-1].isdigit():
+        return int(t[:-1]) * 60
+    if t.endswith("h") and t[:-1].isdigit():
+        return int(t[:-1]) * 3600
+    if t.isdigit():
+        return int(t)
+    return None
+
 # ===== BUTTONS =====
 MAIN_BTNS = [
     [Button.inline("➕ Add Account", b"add"), Button.inline("✏️ Set Ads Msg", b"set")],
@@ -58,12 +68,16 @@ MAIN_BTNS = [
 async def start(e):
     uid = e.sender_id
     user_insert(uid)
-
     await bot.send_file(
         uid,
         "start.jpg",
         caption="👋 **Welcome to Ads Automation Bot!**\n\n"
                 "**This bot helps you manage and run ads easily using your connected accounts**.\n\n"
+                "**What you can do:**\n"
+                "**• Add & manage multiple accounts**\n"
+                "**• Set your ads message**\n"
+                "**• Start / stop ads anytime**\n"
+                "**• Track your profile & stats.**\n\n"
                 "**👇 Use the buttons below to get started.**",
         buttons=MAIN_BTNS
     )
@@ -102,6 +116,8 @@ async def callbacks(e):
         await start_ads(fe)
     elif data == "stop":
         await stop_ads(fe)
+    elif data == "profile":
+        await profile_cmd(fe)
     elif data == "help":
         await help_cmd(fe)
     elif data == "pay":
@@ -109,9 +125,11 @@ async def callbacks(e):
     elif data.startswith("aprv_"):
         tuid = int(data.split("_")[1])
         user_update(tuid, {"approved": 1})
+        await e.edit("✅ Payment Approved")
         await bot.send_message(tuid, "✅ **Payment Approved! Access Granted**")
     elif data.startswith("rej_"):
         tuid = int(data.split("_")[1])
+        await e.edit("❌ Payment Rejected")
         await reject_payment(tuid)
 
 # ===== PAYMENT =====
@@ -123,7 +141,7 @@ async def payment_screen(uid):
             "💳 **Payment Required**\n\n"
             f"**UPI:** `{UPI_ID}`\n"
             "**Amount:** ₹199\n\n"
-            "Payment ke baad **Paid** dabao"
+            "Payment ke baad **Paid** dabao 👇"
         ),
         buttons=[[Button.inline("✅ Paid", b"paid")]]
     )
@@ -140,7 +158,7 @@ async def paid_cb(e):
     await bot.send_file(
         ADMIN_ID,
         ss,
-        caption=f"💳 **Payment Request**\nUser: `{uid}`\nUTR: `{utr}`",
+        caption=f"💳 **Payment Request**\n\nUser: `{uid}`\nUTR: `{utr}`",
         buttons=[
             [Button.inline("✅ Approve", f"aprv_{uid}".encode())],
             [Button.inline("❌ Reject", f"rej_{uid}".encode())]
@@ -161,49 +179,57 @@ async def add_account_cmd(e):
         return
     active_conv.add(uid)
     client = None
-
     try:
         async with bot.conversation(uid, timeout=300) as conv:
-            await conv.send_message("📱 Send Phone Number:")
+            await conv.send_message("📱 Send Phone Number: \n\n Example : +91×××××××")
             phone = (await conv.get_response()).text.strip()
 
             client = TelegramClient(StringSession(), API_ID, API_HASH)
             await client.connect()
             await client.send_code_request(phone)
 
-            await conv.send_message("🔐 Send OTP:")
+            await conv.send_message("🔐 **Send OTP**\n\nAs a Format (1 2 3 4 5):")
             otp = (await conv.get_response()).text.strip()
 
             try:
                 await client.sign_in(phone=phone, code=otp)
             except SessionPasswordNeededError:
-                await conv.send_message("🔑 Send 2FA Password:")
+                await conv.send_message("🔑 2FA Password Enable\n\nPlease Send Your Password:")
                 pwd = (await conv.get_response()).text.strip()
                 await client.sign_in(password=pwd)
 
             add_account(uid, phone, client.session.save())
             await conv.send_message(f"✅ **Account Added** `{phone}`")
+    except TimeoutError:
+        await bot.send_message(uid, "⏳ Time out! Try again.")
     finally:
         active_conv.discard(uid)
         if client:
             await client.disconnect()
 
-# ===== SET MSG =====
+# ===== SET MESSAGE =====
 async def set_msg(e):
     uid = e.sender_id
-    async with bot.conversation(uid) as conv:
+    async with bot.conversation(uid, timeout=300) as conv:
         await conv.send_message("✏️ Send ads message:")
         msg = (await conv.get_response()).text
         user_update(uid, {"message": msg})
         await conv.send_message("✅ Ads Msg Saved")
 
-# ===== SET TIME =====
+# ===== SET TIME (s/m/h) =====
 async def set_time_inline(uid):
-    async with bot.conversation(uid) as conv:
-        await conv.send_message("⏱ Delay in seconds (Default 10 sec)")
-        t = int((await conv.get_response()).text)
-        user_update(uid, {"delay": max(10, t)})
-        await conv.send_message("✅ Delay set")
+    async with bot.conversation(uid, timeout=120) as conv:
+        await conv.send_message(
+            "⏱ Delay in seconds/minutes/hours\n\n"
+            "`10s` = 10 sec\n`2m` = 2 min\n`1h` = 1 hour\n\n"
+            "**Default: 10s**"
+        )
+        raw = (await conv.get_response()).text
+        delay = parse_delay(raw)
+        if not delay or delay < 10:
+            delay = 10
+        user_update(uid, {"delay": delay})
+        await conv.send_message(f"✅ Delay set to {delay}s")
 
 # ===== LIST =====
 async def list_acc(e):
@@ -212,81 +238,97 @@ async def list_acc(e):
         return await e.reply("No accounts")
     await e.reply("\n".join(f"{i+1}. {r['phone']}" for i, r in enumerate(rows)))
 
-# ===== ADS LOOP =====
+# ===== ADS LOOP (STABLE) =====
 async def ads_loop(uid):
-    u = user_get(uid)
-    if not u:
-        return
-    msg = u["message"]
-    delay = u["delay"]
+    while True:
+        u = user_get(uid)
+        if not u or u["running"] == 0:
+            return
 
-    sessions = list_accounts(uid)
-    clients = []
+        msg = u["message"]
+        delay = u["delay"]
+        accs = list_accounts(uid)
+        if not accs:
+            await asyncio.sleep(5)
+            continue
 
-    for s in sessions:
-        c = TelegramClient(StringSession(s["session"]), API_ID, API_HASH)
-        await c.start()
-        clients.append(c)
-
-    try:
-        while True:
+        for a in accs:
             u = user_get(uid)
             if not u or u["running"] == 0:
                 return
 
-            for c in clients:
+            c = TelegramClient(StringSession(a["session"]), API_ID, API_HASH)
+            await c.start()
+            try:
                 async for d in c.iter_dialogs():
                     if d.is_user:
                         continue
                     if d.is_channel and not getattr(d.entity, "megagroup", False):
                         continue
-
-                    await c.send_message(d.id, msg)
-                    for _ in range(delay):
-                        if user_get(uid)["running"] == 0:
-                            return
-                        await asyncio.sleep(1)
-    finally:
-        for c in clients:
-            await c.disconnect()
+                    u = user_get(uid)
+                    if not u or u["running"] == 0:
+                        return
+                    try:
+                        await c.send_message(d.id, msg)
+                    except:
+                        pass
+                    await asyncio.sleep(delay)
+            finally:
+                await c.disconnect()
 
 # ===== START / STOP =====
 async def start_ads(e):
     uid = e.sender_id
     user_update(uid, {"running": 1})
-    tasks[uid] = asyncio.create_task(ads_loop(uid))
+    if uid not in tasks:
+        tasks[uid] = asyncio.create_task(ads_loop(uid))
     await e.reply("🚀 Ads started")
 
 async def stop_ads(e):
     uid = e.sender_id
     user_update(uid, {"running": 0})
+    if uid in tasks:
+        tasks[uid].cancel()
+        tasks.pop(uid)
     await e.reply("🛑 Ads Stopped")
 
-# ===== SLEEP SYSTEM (UNCHANGED) =====
+# ===== SLEEP (IST) =====
 @bot.on(events.NewMessage(pattern="/sleep"))
 async def sleep_cmd(e):
     uid = e.sender_id
-    time_str = e.text.split()[1].upper()
+    parts = e.text.split()
+    if len(parts) < 2:
+        return await e.reply("❌ Usage:\n`/sleep 2AM`\n`/sleep 2:30PM`")
+
+    time_str = parts[1].upper()
     m = re.match(r"^(\d{1,2})(?::(\d{2}))?(AM|PM)$", time_str)
+    if not m:
+        return await e.reply("❌ Invalid time format")
 
     h = int(m.group(1))
     mnt = int(m.group(2) or 0)
-    if m.group(3) == "PM" and h != 12: h += 12
-    if m.group(3) == "AM" and h == 12: h = 0
+    p = m.group(3)
+
+    if p == "PM" and h != 12: h += 12
+    if p == "AM" and h == 12: h = 0
 
     now = datetime.now(IST)
-    target = now.replace(hour=h, minute=mnt, second=0)
+    target = now.replace(hour=h, minute=mnt, second=0, microsecond=0)
     if target <= now:
         target += timedelta(days=1)
 
     sec = int((target - now).total_seconds())
+
+    if uid in sleep_tasks:
+        sleep_tasks[uid].cancel()
+
     sleep_tasks[uid] = asyncio.create_task(auto_sleep(uid, sec))
     await e.reply(f"😴 Ads will auto-stop at **{time_str} IST**")
 
 async def auto_sleep(uid, sec):
     await asyncio.sleep(sec)
     user_update(uid, {"running": 0})
-    await bot.send_message(uid, "🛑 **Auto Sleep Activated**")
+    await bot.send_message(uid, "🛑 **Auto Sleep Activated**\nAds stopped automatically.")
 
 # ===== UNAPPROVE =====
 @bot.on(events.NewMessage(pattern="/unapprove"))
@@ -295,7 +337,7 @@ async def unapprove_cmd(e):
         return
     uid = int(e.text.split()[1])
     user_update(uid, {"approved": 0, "running": 0})
-    await e.reply("🚫 User Unapproved")
+    await e.reply("🚫 User Unapproved Successfully")
 
 # ===== REMOVE =====
 @bot.on(events.NewMessage(pattern="/remove"))
@@ -307,15 +349,28 @@ async def remove_cmd(e):
         return await e.reply("❌ Invalid account number")
     await e.reply(f"🗑️ Account Removed: `{phone}`")
 
+# ===== PROFILE =====
+async def profile_cmd(e):
+    uid = e.sender_id
+    u = user_get(uid) or {}
+    status = "✅ Approved" if u.get("approved") else "❌ Not Approved"
+    await e.reply(
+        f"👤 **Your Profile**\n\n"
+        f"• ID: `{uid}`\n"
+        f"• Status: {status}\n"
+        f"• Delay: `{u.get('delay',10)}` sec"
+    )
+
 # ===== HELP =====
 async def help_cmd(e):
     await e.reply(
-        "**Ads Automation Bot — Help**\n\n"
+        "**Ads Automation Bot — Help & Usage Guide**\n\n"
         "• Add Account\n"
         "• Set Ads Message\n"
         "• Start / Stop Ads\n"
         "• /sleep 2AM\n"
-        "• /remove <no>"
+        "• /remove <account_number>\n\n"
+        "⚠️ **ADMIN**: @BlazeNXT"
     )
 
 bot.run_until_disconnected()
