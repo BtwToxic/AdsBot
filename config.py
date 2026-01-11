@@ -3,8 +3,8 @@ API_HASH = "ee8f0b706749f918f59fc74a60bc0381"
 BOT_TOKEN = "8361283474:AAG79XBMHcPt2eLZWMiEmiMLCoxu8Uq1v0s"
 
 ADMIN_USERNAME = "BlazeNXT"
-ADMIN_ID = 6944519938
+ADMIN_ID = 5812817910
 
-UPI_ID = ""
+UPI_ID = "whoisnaseem@fam"
 RS = "99"
 MONGO_URL = "mongodb+srv://Krishna:pss968048@cluster0.4rfuzro.mongodb.net/?retryWrites=true&w=majority"
