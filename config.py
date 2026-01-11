@@ -5,4 +5,6 @@ BOT_TOKEN = "8361283474:AAG79XBMHcPt2eLZWMiEmiMLCoxu8Uq1v0s"
 ADMIN_USERNAME = "BlazeNXT"
 ADMIN_ID = 6944519938
 
+UPI_ID = ""
+RS = "99"
 MONGO_URL = "mongodb+srv://Krishna:pss968048@cluster0.4rfuzro.mongodb.net/?retryWrites=true&w=majority"
