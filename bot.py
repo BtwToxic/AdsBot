@@ -91,6 +91,30 @@ async def start(e):
         buttons=MAIN_BTNS
     )
 
+# ===== CALLBACKS (FIXED – NO BLOCK) =====
+@bot.on(events.CallbackQuery)
+async def callbacks(e):
+    uid = e.sender_id
+    data = e.data.decode()
+    await e.answer()
+
+    class FE:
+        sender_id = uid
+        async def reply(self, *a, **k):
+            return await bot.send_message(uid, *a, **k)
+
+    fe = FE()
+
+    if data == "add": await add_account_cmd(fe)
+    elif data == "set": await set_msg(fe)
+    elif data == "time": await set_time_inline(uid)
+    elif data == "list": await list_acc(fe)
+    elif data == "send": await start_ads(fe)
+    elif data == "stop": await stop_ads(fe)
+    elif data == "profile": await profile_cmd(fe)
+    elif data == "help": await help_cmd(fe)
+    elif data == "pay": await payment_screen(uid)
+
 # ===== ADD ACCOUNT =====
 async def add_account_cmd(e):
     uid = e.sender_id
@@ -137,25 +161,59 @@ async def add_account_cmd(e):
         if client:
             await client.disconnect()
 
-# ===== FORWARD (PREMIUM ONLY) =====
-@bot.on(events.NewMessage(pattern="/forward"))
-async def forward_cmd(e):
+# ===== SET MESSAGE =====
+async def set_msg(e):
+    async with bot.conversation(e.sender_id, timeout=300) as conv:
+        await conv.send_message("✏️ Send ads message:")
+        msg = (await conv.get_response()).text
+        user_update(e.sender_id, {"message": msg})
+        await conv.send_message("✅ Ads Msg Saved")
+
+# ===== SET TIME =====
+async def set_time_inline(uid):
+    async with bot.conversation(uid, timeout=120) as conv:
+        await conv.send_message(
+            "⏱ Delay in seconds/minutes/hours\n\n"
+            "`10s` = 10 sec\n`2m` = 2 min\n`1h` = 1 hour\n\n"
+            "**Default: 10s**"
+        )
+        raw = (await conv.get_response()).text
+        delay = parse_delay(raw)
+        if not delay or delay < 10:
+            delay = 10
+        user_update(uid, {"delay": delay})
+        await conv.send_message(f"✅ Delay set to {delay}s")
+
+# ===== LIST =====
+async def list_acc(e):
+    rows = list_accounts(e.sender_id)
+    if not rows:
+        return await e.reply("No accounts")
+    await e.reply("\n".join(f"{i+1}. {r['phone']}" for i, r in enumerate(rows)))
+
+# ===== START ADS =====
+async def start_ads(e):
     uid = e.sender_id
     if not approved(uid):
-        return
+        return await e.reply(
+            "⚠️ Access is restricted.\n\nPlease Buy Access.\n\nAdmin Username: @BlazeNXT"
+        )
 
-    parts = e.text.split()
-    if len(parts) < 2:
-        return
+    user_update(uid, {"running": 1})
+    if uid not in tasks:
+        tasks[uid] = asyncio.create_task(ads_loop(uid))
+    await e.reply("🚀 Ads started")
 
-    if parts[1] == "on":
-        user_update(uid, {"forward": 1})
-        await e.reply("✅ Forward Enabled")
-    elif parts[1] == "off":
-        user_update(uid, {"forward": 0})
-        await e.reply("❌ Forward Disabled")
+# ===== STOP ADS =====
+async def stop_ads(e):
+    uid = e.sender_id
+    user_update(uid, {"running": 0})
+    if uid in tasks:
+        tasks[uid].cancel()
+        tasks.pop(uid)
+    await e.reply("🛑 Ads Stopped")
 
-# ===== ADS LOOP WITH LOG =====
+# ===== ADS LOOP =====
 async def ads_loop(uid):
     while True:
         u = user_get(uid)
@@ -169,7 +227,6 @@ async def ads_loop(uid):
         for a in list_accounts(uid):
             c = TelegramClient(StringSession(a["session"]), API_ID, API_HASH)
             await c.start()
-
             try:
                 async for d in c.iter_dialogs():
                     if d.is_user:
@@ -183,42 +240,25 @@ async def ads_loop(uid):
                         else:
                             await c.send_message(d.id, msg)
 
-                        await bot.send_message(
-                            uid,
-                            f"✅ Sent\n\n"
-                            f"👥 {d.name}\n"
-                            f"🕒 {ist_now()}"
-                        )
+                        await bot.send_message(uid, f"✅ Sent\n\n👥 {d.name}\n🕒 {ist_now()}")
                     except Exception as er:
-                        await bot.send_message(
-                            uid,
-                            f"❌ Failed\n\n"
-                            f"👥 {d.name}\n"
-                            f"🕒 {ist_now()}\n"
-                            f"{er}"
-                        )
+                        await bot.send_message(uid, f"❌ Failed\n\n👥 {d.name}\n🕒 {ist_now()}\n{er}")
 
                     await asyncio.sleep(delay)
             finally:
                 await c.disconnect()
 
-# ===== START / STOP =====
-async def start_ads(e):
+# ===== REMOVE =====
+@bot.on(events.NewMessage(pattern="/remove"))
+async def remove_cmd(e):
     uid = e.sender_id
-    user_update(uid, {"running": 1})
-    if uid not in tasks:
-        tasks[uid] = asyncio.create_task(ads_loop(uid))
-    await e.reply("🚀 Ads started")
+    idx = int(e.text.split()[1]) - 1
+    phone = remove_account(uid, idx)
+    if not phone:
+        return await e.reply("❌ Invalid account number")
+    await e.reply(f"🗑️ Account Removed: `{phone}`")
 
-async def stop_ads(e):
-    uid = e.sender_id
-    user_update(uid, {"running": 0})
-    if uid in tasks:
-        tasks[uid].cancel()
-        tasks.pop(uid)
-    await e.reply("🛑 Ads Stopped")
-
-# ===== SLEEP (AS ORIGINAL) =====
+# ===== SLEEP =====
 @bot.on(events.NewMessage(pattern="/sleep"))
 async def sleep_cmd(e):
     uid = e.sender_id
@@ -256,7 +296,7 @@ async def auto_sleep(uid, sec):
     user_update(uid, {"running": 0})
     await bot.send_message(uid, "🛑 **Auto Sleep Activated**\nAds stopped automatically.")
 
-# ===== UNAPPROVE (AS ORIGINAL) =====
+# ===== UNAPPROVE =====
 @bot.on(events.NewMessage(pattern="/unapprove"))
 async def unapprove_cmd(e):
     if e.sender_id != ADMIN_ID:
@@ -265,7 +305,7 @@ async def unapprove_cmd(e):
     user_update(uid, {"approved": 0, "running": 0})
     await e.reply("🚫 User Unapproved Successfully")
 
-# ===== PROFILE (ORIGINAL TEXT) =====
+# ===== PROFILE =====
 async def profile_cmd(e):
     uid = e.sender_id
     u = user_get(uid) or {}
