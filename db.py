@@ -18,7 +18,7 @@ def user_insert(uid):
             "running": 0,
             "sent_count": 0,
             "sleep_at": None,
-            "forward": 0   # ✅ NEW (default OFF)
+            "forward": 0
         }},
         upsert=True
     )
@@ -50,3 +50,25 @@ def remove_account(uid, idx):
     acc = rows[idx]
     accounts.delete_one({"_id": acc["_id"]})
     return acc["phone"]
+
+# ===== KEYS =====
+keys = db.keys
+
+def save_key(key, expiry_ts):
+    """Save a new premium key"""
+    keys.insert_one({
+        "key": key,
+        "expiry": expiry_ts,
+        "used": False
+    })
+
+def get_key(key):
+    """Get a key if it exists and not used"""
+    k = keys.find_one({"key": key, "used": False})
+    if k and k["expiry"] > datetime.now(IST).timestamp():
+        return k
+    return None
+
+def use_key(key):
+    """Mark a key as used"""
+    keys.update_one({"key": key}, {"$set": {"used": True}})
