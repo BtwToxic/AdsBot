@@ -402,8 +402,6 @@ async def help_cmd(e):
     )
 
 # ===== RUN BOT =====
-async def main():
-    asyncio.create_task(premium_watcher())
-    await bot.run_until_disconnected()
-
-asyncio.run(main())
+asyncio.create_task(premium_watcher())  
+bot.start()                             
+bot.run_until_disconnected()            
