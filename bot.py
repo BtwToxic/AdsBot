@@ -312,7 +312,7 @@ async def unapprove_cmd(e):
     await e.reply("🚫 User Unapproved Successfully")
 
 
-# Admin generates a key
+# ====== KEY GENERATOR ======
 @bot.on(events.NewMessage(pattern="/genkey"))
 async def gen_key(e):
     if e.sender_id != ADMIN_ID:
@@ -326,7 +326,7 @@ async def gen_key(e):
     save_key(key, ist_now().timestamp() + sec)
     await e.reply(f"🔑 KEY: `{key}`\nValid for: {duration}")
 
-# User redeems key
+# ====== REDEEM ======
 @bot.on(events.NewMessage(pattern="/redeem"))
 async def redeem_key(e):
     parts = e.text.split()
@@ -342,6 +342,28 @@ async def redeem_key(e):
     })
     use_key(key)
     await e.reply("✅ Premium Activated")
+
+async def premium_watcher():
+    while True:
+        await asyncio.sleep(60)  # check every 1 minute
+        for u in db_all_users():
+            if u.get("premium_until"):
+                left = u["premium_until"] - ist_now().timestamp()
+
+                # 3 days warning
+                if 0 < left <= 259200:  # 3 days in seconds
+                    await bot.send_message(
+                        u["id"],
+                        f"⚠️ Premium ending soon. {left // 3600} hours left"
+                    )
+
+                # Expiry
+                if left <= 0:
+                    user_update(u["id"], {"approved": 0, "premium_until": None})
+                    await bot.send_message(
+                        u["id"],
+                        "❌ Premium expired. You are now Free user."
+                    )
 
 # ===== PROFILE =====
 async def profile_cmd(e):
