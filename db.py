@@ -57,21 +57,18 @@ def remove_account(uid, idx):
     return acc["phone"]
 
 # ===== KEYS =====
-def save_key(key, expiry_ts):
-    """Save a new premium key"""
+def save_key(key, duration_sec):
+    """Save a new premium key with duration (in seconds)"""
     keys.insert_one({
         "key": key,
-        "expiry": expiry_ts,
+        "duration": duration_sec,
         "used": False
     })
 
 def get_key(key):
-    """Get a key if it exists and not used"""
-    k = keys.find_one({"key": key, "used": False})
-    if k and k["expiry"] > datetime.now(IST).timestamp():
-        return k
-    return None
+    """Return key only if it exists and not used"""
+    return keys.find_one({"key": key, "used": False})
 
 def use_key(key):
-    """Mark a key as used"""
+    """Mark key as used"""
     keys.update_one({"key": key}, {"$set": {"used": True}})
