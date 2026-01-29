@@ -1,5 +1,6 @@
 import re
 import asyncio
+import secrets
 from datetime import datetime, timedelta
 import pytz
 from asyncio import TimeoutError
@@ -309,6 +310,38 @@ async def unapprove_cmd(e):
     uid = int(e.text.split()[1])
     user_update(uid, {"approved": 0, "running": 0})
     await e.reply("🚫 User Unapproved Successfully")
+
+
+# Admin generates a key
+@bot.on(events.NewMessage(pattern="/genkey"))
+async def gen_key(e):
+    if e.sender_id != ADMIN_ID:
+        return
+    parts = e.text.split()
+    if len(parts) < 2:
+        return await e.reply("/genkey 7d | 12h")
+    duration = parts[1]  # e.g., '7d'
+    sec = parse_delay(duration)
+    key = secrets.token_hex(8)
+    save_key(key, ist_now().timestamp() + sec)
+    await e.reply(f"🔑 KEY: `{key}`\nValid for: {duration}")
+
+# User redeems key
+@bot.on(events.NewMessage(pattern="/redeem"))
+async def redeem_key(e):
+    parts = e.text.split()
+    if len(parts) < 2:
+        return await e.reply("/redeem KEY")
+    key = parts[1]
+    k = get_key(key)
+    if not k:
+        return await e.reply("❌ Invalid or expired key")
+    user_update(e.sender_id, {
+        "approved": 1,
+        "premium_until": k["expiry"]
+    })
+    use_key(key)
+    await e.reply("✅ Premium Activated")
 
 # ===== PROFILE =====
 async def profile_cmd(e):
