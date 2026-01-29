@@ -57,14 +57,14 @@ def remove_account(uid, idx):
     return acc["phone"]
 
 # ===== KEYS =====
-def save_key(key, duration_sec):
-    """Save a new premium key with duration (in seconds)"""
+def save_key(key, duration_sec: int):
+    """Save a new premium key with duration in seconds"""
     keys.insert_one({
         "key": key,
-        "duration": duration_sec,
+        "duration": int(duration_sec),
         "used": False
     })
-
+    
 def get_key(key):
     """Return key only if it exists and not used"""
     return keys.find_one({"key": key, "used": False})
