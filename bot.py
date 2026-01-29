@@ -323,52 +323,26 @@ async def unapprove_cmd(e):
     user_update(uid, {"approved": 0, "running": 0})
     await e.reply("🚫 User Unapproved Successfully")
 
-
-# ====== DURATION PARSER ======
-def parse_delay(duration_str):
-    """
-    Converts human-readable duration to seconds.
-    Accepts:
-        d -> days
-        h -> hours
-        s -> seconds
-    Returns:
-        int seconds or None if invalid
-    """
-    try:
-        duration_str = duration_str.lower()
-        unit = duration_str[-1]
-        amount = int(duration_str[:-1])  # must convert to int
-        if unit == 'd':
-            return amount * 24 * 60 * 60
-        elif unit == 'h':
-            return amount * 60 * 60
-        elif unit == 's':
-            return amount
-        else:
-            return None
-    except:
-        return None
-
 # ====== KEY GENERATOR ======
 @bot.on(events.NewMessage(pattern="/key"))
 async def gen_key(e):
     if e.sender_id != ADMIN_ID:
         return
+
     parts = e.text.split()
-    if len(parts) < 2:
-        return await e.reply("/key 7d | 12h | 30s")
+    if len(parts) < 2 or not parts[1].isdigit():
+        return await e.reply("❌ Usage: /key <seconds>")
 
-    duration = parts[1]
-    sec = parse_delay(duration)
-    if not sec:
-        return await e.reply("❌ Invalid duration")
+    sec = int(parts[1])  # simple seconds input
+    key = secrets.token_hex(8)  # random 16-char hex key
 
-    key = secrets.token_hex(8)
-    expiry_ts = ist_now().timestamp() + sec 
+    # Use datetime object for timestamp calculations
+    expiry_ts = datetime.now(IST).timestamp() + sec
     save_key(key, expiry_ts)
 
-    await e.reply(f"🔑 KEY: `{key}`\nValid for: {duration} ({sec} seconds)")
+    # Display current time in IST
+    current_time = datetime.now(IST).strftime("%d-%m-%Y %I:%M:%S %p")
+    await e.reply(f"🔑 KEY: `{key}`\nValid for: {sec} seconds\n🕒 {current_time}")
     
 # ====== REDEEM ======
 @bot.on(events.NewMessage(pattern="/redeem"))
