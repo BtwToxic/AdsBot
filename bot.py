@@ -363,29 +363,20 @@ async def redeem_key(e):
     use_key(key)
     await e.reply("✅ Premium Activated")
 
+# ===== PREMIUM WATCHER =====
 async def premium_watcher():
     while True:
-        await asyncio.sleep(5)  # check every 5 seconds for fast expiry
-
+        await asyncio.sleep(2)  # short interval for testing
         for u in db_all_users():
-            if u.get("premium_until"):
-                left = u["premium_until"] - ist_ts().timestamp()  # use datetime object
-
-                # Optional: 3 days warning (ignore for 10 sec key)
-                if 0 < left <= 259200:
-                    await bot.send_message(
-                        u["id"],
-                        f"⚠️ Premium ending soon. {left // 3600} hours left"
-                    )
-
-                # Expiry
+            premium_until = u.get("premium_until")
+            if premium_until:
+                left = premium_until - ist_ts().timestamp()
                 if left <= 0:
                     user_update(u["id"], {"approved": 0, "premium_until": None})
-                    await bot.send_message(
-                        u["id"],
-                        "❌ Premium expired. You are now Free user."
-                    )
-
+                    try:
+                        await bot.send_message(u["id"], "❌ Premium expired. You are now Free user.")
+                    except:
+                        pass
 # ===== PROFILE =====
 async def profile_cmd(e):
     uid = e.sender_id
@@ -410,4 +401,9 @@ async def help_cmd(e):
         "⚠️ **ADMIN**: @BlazeNXT"
     )
 
-bot.run_until_disconnected()
+# ===== RUN BOT =====
+async def main():
+    asyncio.create_task(premium_watcher())
+    await bot.run_until_disconnected()
+
+asyncio.run(main())
