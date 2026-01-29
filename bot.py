@@ -17,6 +17,7 @@ from db import (
 )
 # ===== IST =====
 IST = pytz.timezone("Asia/Kolkata")
+
 def ist_ts():
     return datetime.now(IST)
 def ist_now():
