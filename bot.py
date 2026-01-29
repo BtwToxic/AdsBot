@@ -355,28 +355,40 @@ async def redeem_key(e):
     key = parts[1]
     k = get_key(key)
     if not k:
-        return await e.reply("❌ Invalid or expired key")
+        return await e.reply("❌ Invalid or already used key")
+
+    # Premium starts now
+    premium_until = datetime.now(IST).timestamp() + k["duration"]
     user_update(e.sender_id, {
         "approved": 1,
-        "premium_until": k["expiry"]
+        "premium_until": premium_until
     })
-    use_key(key)
-    await e.reply("✅ Premium Activated")
 
+    # Mark key as used
+    use_key(key)
+
+    await e.reply(f"✅ Premium Activated for {k['duration']} seconds")
 # ===== PREMIUM WATCHER =====
 async def premium_watcher():
     while True:
-        await asyncio.sleep(2)  # short interval for testing
+        await asyncio.sleep(60)  # check every 1 minute
         for u in db_all_users():
             premium_until = u.get("premium_until")
             if premium_until:
-                left = premium_until - ist_ts().timestamp()
-                if left <= 0:
-                    user_update(u["id"], {"approved": 0, "premium_until": None})
+                left = premium_until - datetime.now(IST).timestamp()
+                
+                # 3 days warning for long durations
+                if 0 < left <= 259200:  # 3 days in sec
                     try:
-                        await bot.send_message(u["id"], "❌ Premium expired. You are now Free user.")
-                    except:
-                        pass
+                        await bot.send_message(u["user_id"], f"⚠️ Premium ending soon. {int(left//3600)}h left")
+                    except: pass
+
+                # Expiry
+                if left <= 0:
+                    user_update(u["user_id"], {"approved": 0, "premium_until": None})
+                    try:
+                        await bot.send_message(u["user_id"], "❌ Premium expired. You are now Free user.")
+                    except: pass
 # ===== PROFILE =====
 async def profile_cmd(e):
     uid = e.sender_id
