@@ -352,22 +352,24 @@ async def redeem_key(e):
     parts = e.text.split()
     if len(parts) < 2:
         return await e.reply("/redeem KEY")
+    
     key = parts[1]
     k = get_key(key)
     if not k:
         return await e.reply("❌ Invalid or already used key")
-
+    
     # Premium starts now
     premium_until = datetime.now(IST).timestamp() + k["duration"]
     user_update(e.sender_id, {
         "approved": 1,
         "premium_until": premium_until
     })
-
+    
     # Mark key as used
     use_key(key)
-
+    
     await e.reply(f"✅ Premium Activated for {k['duration']} seconds")
+    
 # ===== PREMIUM WATCHER =====
 async def premium_watcher():
     while True:
