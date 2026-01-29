@@ -322,19 +322,25 @@ async def unapprove_cmd(e):
 
 
 # ====== KEY GENERATOR ======
-@bot.on(events.NewMessage(pattern="/genkey"))
+@bot.on(events.NewMessage(pattern="/key"))
 async def gen_key(e):
     if e.sender_id != ADMIN_ID:
         return
     parts = e.text.split()
     if len(parts) < 2:
         return await e.reply("/genkey 7d | 12h")
-    duration = parts[1]  # e.g., '7d'
-    sec = parse_delay(duration)
-    key = secrets.token_hex(8)
-    save_key(key, ist_now().timestamp() + sec)
-    await e.reply(f"🔑 KEY: `{key}`\nValid for: {duration}")
 
+    duration = parts[1]
+    sec = parse_delay(duration)
+    if not sec:
+        return await e.reply("❌ Invalid duration")
+
+    key = secrets.token_hex(8)
+    expiry_ts = datetime.now(IST).timestamp() + sec 
+    save_key(key, expiry_ts)
+
+    await e.reply(f"🔑 KEY: `{key}`\nValid for: {duration}")
+    
 # ====== REDEEM ======
 @bot.on(events.NewMessage(pattern="/redeem"))
 async def redeem_key(e):
