@@ -19,6 +19,7 @@ from db import (
 IST = pytz.timezone("Asia/Kolkata")
 
 def ist_ts():
+    """Return datetime object in IST"""
     return datetime.now(IST)
 def ist_now():
     return datetime.now(IST).strftime("%d-%m-%Y %I:%M:%S %p")
@@ -364,13 +365,14 @@ async def redeem_key(e):
 
 async def premium_watcher():
     while True:
-        await asyncio.sleep(60)  # check every 1 minute
+        await asyncio.sleep(5)  # check every 5 seconds for fast expiry
+
         for u in db_all_users():
             if u.get("premium_until"):
-                left = u["premium_until"] - ist_now().timestamp()
+                left = u["premium_until"] - ist_ts().timestamp()  # use datetime object
 
-                # 3 days warning
-                if 0 < left <= 259200:  # 3 days in seconds
+                # Optional: 3 days warning (ignore for 10 sec key)
+                if 0 < left <= 259200:
                     await bot.send_message(
                         u["id"],
                         f"⚠️ Premium ending soon. {left // 3600} hours left"
