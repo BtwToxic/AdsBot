@@ -368,7 +368,7 @@ async def redeem_key(e):
     # Mark key as used
     use_key(key)
     
-    await e.reply(f"✅ Premium Activated for {k['duration']} seconds")
+    await e.reply(f"✅ Premium Activated for {k['duration']} seconds (~{k['duration']//60} min)")
     
 # ===== PREMIUM WATCHER =====
 async def premium_watcher():
