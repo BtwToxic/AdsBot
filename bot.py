@@ -18,6 +18,8 @@ from db import (
 # ===== IST =====
 IST = pytz.timezone("Asia/Kolkata")
 
+def ist_now():
+    return datetime.now(IST)  
 # ===== DEVICE INFO =====
 DEVICE_NAME = "𝗗𝗲𝘃 —🇮🇳 @iscxm"
 APP_VERSION = "—Dev"
