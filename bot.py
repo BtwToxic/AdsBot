@@ -125,12 +125,11 @@ async def callbacks(e):
 async def add_account_cmd(e):
     uid = e.sender_id
 
+    # Free / Premium limit check
     if not can_add_account(uid):
         return await bot.send_message(
             uid,
-            "❌ **Free User Limit Reached**\n\n"
-            "You can add only **3 accounts**.\n"
-            "💳 Buy Premium for Unlimited Accounts."
+            "❌ **Free User Limit Reached**\nYou can add only 1 account.\n💳 Buy Premium for Unlimited Accounts."
         )
 
     if uid in active_conv:
@@ -140,25 +139,35 @@ async def add_account_cmd(e):
     client = None
     try:
         async with bot.conversation(uid, timeout=300) as conv:
-            await conv.send_message("📱 Send Phone Number: \n\n Example : +91×××××××")
+            await conv.send_message("📱 Send Phone Number (with +91):")
             phone = (await conv.get_response()).text.strip()
 
+            # User client only
             client = TelegramClient(StringSession(), API_ID, API_HASH)
             await client.connect()
-            await client.send_code_request(phone)
 
-            await conv.send_message("🔐 **Send OTP**\n\nAs a Format (1 2 3 4 5):")
+            # OTP request safely
+            try:
+                await client.send_code_request(phone)
+            except Exception as er:
+                await conv.send_message(f"❌ Could not send OTP: {er}")
+                return
+
+            await conv.send_message("🔐 Send OTP (format: 1 2 3 4 5):")
             otp = (await conv.get_response()).text.strip()
 
             try:
                 await client.sign_in(phone=phone, code=otp)
             except SessionPasswordNeededError:
-                await conv.send_message("🔑 2FA Password Enable\n\nPlease Send Your Password:")
+                await conv.send_message("🔑 2FA Enabled, send your password:")
                 pwd = (await conv.get_response()).text.strip()
                 await client.sign_in(password=pwd)
+            except Exception as er:
+                await conv.send_message(f"❌ Sign in failed: {er}")
+                return
 
             add_account(uid, phone, client.session.save())
-            await conv.send_message(f"✅ **Account Added** `{phone}`")
+            await conv.send_message(f"✅ Account Added: `{phone}`")
 
     except TimeoutError:
         await bot.send_message(uid, "⏳ Time out! Try again.")
