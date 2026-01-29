@@ -12,16 +12,16 @@ from telethon.errors import SessionPasswordNeededError
 from config import *
 from db import (
     user_insert, user_get, user_update,
-    add_account, list_accounts, remove_account
+    add_account, list_accounts, remove_account,
+    save_key, get_key, use_key
 )
-
 # ===== IST =====
 IST = pytz.timezone("Asia/Kolkata")
 
 # ===== DEVICE INFO =====
 DEVICE_NAME = "𝗗𝗲𝘃 —🇮🇳 @iscxm"
 APP_VERSION = "—Dev"
-SYSTEM_VERSION = "Sex Randi Version 2.0 Join — @TechBotss"
+SYSTEM_VERSION = "Sex Randi Version 3.0 Join — @TechBotss"
 
 # ===== BOT =====
 bot = TelegramClient(
