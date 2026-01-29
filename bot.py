@@ -1,7 +1,7 @@
 import re
 import asyncio
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import pytz
 from asyncio import TimeoutError
 
@@ -321,6 +321,29 @@ async def unapprove_cmd(e):
     await e.reply("🚫 User Unapproved Successfully")
 
 
+# ====== DURATION PARSER ======
+def parse_delay(duration_str):
+    """
+    Converts human-readable duration to seconds.
+    Accepts:
+        d -> days
+        h -> hours
+        s -> seconds
+    """
+    try:
+        unit = duration_str[-1].lower()
+        amount = int(duration_str[:-1])
+        if unit == 'd':
+            return amount * 24 * 60 * 60
+        elif unit == 'h':
+            return amount * 60 * 60
+        elif unit == 's':
+            return amount
+        else:
+            return None
+    except:
+        return None
+
 # ====== KEY GENERATOR ======
 @bot.on(events.NewMessage(pattern="/key"))
 async def gen_key(e):
@@ -328,7 +351,7 @@ async def gen_key(e):
         return
     parts = e.text.split()
     if len(parts) < 2:
-        return await e.reply("/genkey 7d | 12h")
+        return await e.reply("/key 7d | 12h | 30s")
 
     duration = parts[1]
     sec = parse_delay(duration)
@@ -336,10 +359,10 @@ async def gen_key(e):
         return await e.reply("❌ Invalid duration")
 
     key = secrets.token_hex(8)
-    expiry_ts = datetime.now(IST).timestamp() + sec 
+    expiry_ts = ist_now().timestamp() + sec 
     save_key(key, expiry_ts)
 
-    await e.reply(f"🔑 KEY: `{key}`\nValid for: {duration}")
+    await e.reply(f"🔑 KEY: `{key}`\nValid for: {duration} ({sec} seconds)")
     
 # ====== REDEEM ======
 @bot.on(events.NewMessage(pattern="/redeem"))
