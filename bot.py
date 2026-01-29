@@ -329,10 +329,13 @@ def parse_delay(duration_str):
         d -> days
         h -> hours
         s -> seconds
+    Returns:
+        int seconds or None if invalid
     """
     try:
-        unit = duration_str[-1].lower()
-        amount = int(duration_str[:-1])
+        duration_str = duration_str.lower()
+        unit = duration_str[-1]
+        amount = int(duration_str[:-1])  # must convert to int
         if unit == 'd':
             return amount * 24 * 60 * 60
         elif unit == 'h':
