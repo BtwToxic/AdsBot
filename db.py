@@ -1,11 +1,16 @@
 from pymongo import MongoClient
 from config import MONGO_URL
+from datetime import datetime
+import pytz
 
 mongo = MongoClient(MONGO_URL)
 db = mongo.adsbot
 
 users = db.users
 accounts = db.accounts
+keys = db.keys
+
+IST = pytz.timezone("Asia/Kolkata")
 
 # ===== USERS =====
 def user_insert(uid):
@@ -52,8 +57,6 @@ def remove_account(uid, idx):
     return acc["phone"]
 
 # ===== KEYS =====
-keys = db.keys
-
 def save_key(key, expiry_ts):
     """Save a new premium key"""
     keys.insert_one({
