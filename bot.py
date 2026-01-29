@@ -40,14 +40,19 @@ active_conv = set()
 # ===== HELPERS =====
 def approved(uid):
     u = user_get(uid)
-    return bool(u and u.get("approved", 0) == 1)
+    if not u:
+        return False
+    until = u.get("premium_until")
+    if until and until > ist_now().timestamp():
+        return True
+    return False
 
 def can_add_account(uid):
     accs = list_accounts(uid)
     if approved(uid):
         return True
-    return len(accs) < 3
-
+    return len(accs) < 1
+    
 def parse_delay(text: str):
     t = text.strip().lower()
     if t.endswith("s") and t[:-1].isdigit():
