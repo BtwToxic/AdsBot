@@ -365,14 +365,25 @@ async def list_acc(e):
 # ===== START ADS =====
 async def start_ads(e):
     uid = e.sender_id
-    if not approved(uid):
+    u = user_get(uid) or {}
+
+    if not list_accounts(uid):
         return await e.reply(
-            "⚠️ Access is restricted.\n\nPlease Buy Access.\n\nAdmin Username: @BlazeNXT"
+            "❌ No account found.\n\nPlease add at least one account."
+        )
+    if not approved(uid):
+        await e.reply(
+            "⚠️ You are using **FREE version**\n\n"
+            "• Only 1 account allowed\n"
+            "• Limited features\n\n"
+            "💳 Buy Premium for full access"
         )
 
     user_update(uid, {"running": 1})
+
     if uid not in tasks:
         tasks[uid] = asyncio.create_task(ads_loop(uid))
+
     await e.reply("🚀 Ads started")
 
 # ===== STOP ADS =====
