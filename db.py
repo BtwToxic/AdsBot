@@ -80,3 +80,6 @@ def get_key(key):
 def use_key(key):
     """Mark key as used"""
     keys.update_one({"key": key}, {"$set": {"used": True}})
+
+def db_all_users():
+    return list(users_collection.find())
