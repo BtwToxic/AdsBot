@@ -463,7 +463,9 @@ async def gen_key(e):
 # ====== REDEEM ======
 @bot.on(events.NewMessage(pattern="/redeem"))
 async def redeem_key(e):
+    uid = e.sender_id
     parts = e.text.split()
+
     if len(parts) < 2:
         return await e.reply("/redeem KEY")
 
@@ -471,16 +473,17 @@ async def redeem_key(e):
     k = get_key(key)
 
     if not k:
-        return await e.reply("❌ Invalid / expired / old-format key")
+        return await e.reply("❌ Invalid / expired key")
 
     now = datetime.now(IST).timestamp()
     premium_until = now + int(k["duration"])
 
     user_update(
-        e.sender_id,
+        uid,
         {
             "approved": 1,
-            "premium_until": premium_until
+            "premium_until": premium_until,
+            "running": 0
         }
     )
 
