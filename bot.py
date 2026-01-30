@@ -473,11 +473,14 @@ async def redeem_key(e):
     now = datetime.now(IST).timestamp()
     premium_until = now + int(k["duration"])
 
-    user_update(e.sender_id, {
-    "approved": 1,
-    "premium_until": premium_until
-    })
-
+    user_update(
+    u["user_id"],
+    {
+        "approved": 0,
+        "premium_until": None,
+        "running": 0   
+    }
+    )
     use_key(key)
 
     await e.reply(
