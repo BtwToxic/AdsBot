@@ -101,6 +101,48 @@ async def start(e):
                 "**👇 Use the buttons below to get started.**",
         buttons=MAIN_BTNS
     )
+# ===== PAYMENT=====
+async def payment_screen(uid):
+    await bot.send_file(
+        uid,
+        "qr.png",
+        caption=(
+            "💳 **Buy Premium (30 Days)**\n\n"
+            f"🔹 UPI ID: `{UPI_ID}`\n"
+            "🔹 Scan QR & Pay\n\n"
+            "Payment ke baad **Paid ✅** button dabaye"
+        ),
+        buttons=[
+            [Button.inline("✅ Paid", b"paid")]
+        ]
+    )
+
+async def ask_txn_id(uid):
+    async with bot.conversation(uid, timeout=300) as conv:
+        await conv.send_message("💰 **Enter Transaction ID:**")
+        txn = (await conv.get_response()).text.strip()
+
+        await conv.send_message("📸 **Send Payment Screenshot:**")
+        ss = await conv.get_response()
+
+        await send_to_admin(uid, txn, ss)
+
+async def send_to_admin(user_id, txn_id, ss_msg):
+    await bot.send_message(
+        ADMIN_ID,
+        f"💳 **New Payment Request**\n\n"
+        f"👤 User ID: `{user_id}`\n"
+        f"💰 Txn ID: `{txn_id}`",
+        buttons=[
+            [
+                Button.inline("✅ Approve", f"pay_ok:{user_id}".encode()),
+                Button.inline("❌ Reject", f"pay_no:{user_id}".encode())
+            ]
+        ]
+    )
+
+    await ss_msg.forward_to(ADMIN_ID)
+
 
 # ===== CALLBACKS (FIXED – NO BLOCK) =====
 @bot.on(events.CallbackQuery)
