@@ -48,10 +48,12 @@ def approved(uid):
     u = user_get(uid)
     if not u:
         return False
+
     until = u.get("premium_until")
-    if until and until > ist_now().timestamp():
-        return True
-    return False
+    if not until:
+        return False
+
+    return until > datetime.now(IST).timestamp()
 
 def can_add_account(uid):
     accs = list_accounts(uid)
