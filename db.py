@@ -66,8 +66,17 @@ def save_key(key, duration_sec: int):
     })
     
 def get_key(key):
-    """Return key only if it exists and not used"""
-    return keys.find_one({"key": key, "used": False})
+    k = keys.find_one({"key": key, "used": False})
+    if not k:
+        return None
+
+    if "expiry" in k:
+        return None
+
+    if "duration" not in k:
+        return None
+
+    return k
 
 def use_key(key):
     """Mark key as used"""
