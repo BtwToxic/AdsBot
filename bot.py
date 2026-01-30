@@ -12,7 +12,8 @@ from telethon.errors import (
     PhoneNumberBannedError,
     PhoneNumberInvalidError,
     PhoneCodeInvalidError,
-    PhoneCodeExpiredError
+    PhoneCodeExpiredError,
+    SessionPasswordNeededError
 )
 
 from config import *
