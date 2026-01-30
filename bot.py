@@ -51,11 +51,12 @@ def approved(uid):
         return False
 
     until = u.get("premium_until")
-    if not until:
+
+    try:
+        return until and float(until) > datetime.now(IST).timestamp()
+    except Exception:
         return False
-
-    return until > datetime.now(IST).timestamp()
-
+        
 def can_add_account(uid):
     accs = list_accounts(uid)
     if approved(uid):
@@ -487,24 +488,34 @@ async def redeem_key(e):
 # ===== PREMIUM WATCHER =====
 async def premium_watcher():
     while True:
-        await asyncio.sleep(60)  # check every 1 minute
-        for u in db_all_users():
-            premium_until = u.get("premium_until")
-            if premium_until:
-                left = premium_until - datetime.now(IST).timestamp()
-                
-                # 3 days warning for long durations
-                if 0 < left <= 259200:  # 3 days in sec
-                    try:
-                        await bot.send_message(u["user_id"], f"⚠️ Premium ending soon. {int(left//3600)}h left")
-                    except: pass
+        try:
+            await asyncio.sleep(10)  # testing ke liye 10 sec
+            now = datetime.now(IST).timestamp()
 
-                # Expiry
-                if left <= 0:
-                    user_update(u["user_id"], {"approved": 0, "premium_until": None})
+            for u in db_all_users():
+                premium_until = u.get("premium_until")
+                if not premium_until:
+                    continue
+
+                if premium_until <= now:
+                    user_update(
+                        u["user_id"],
+                        {
+                            "approved": 0,
+                            "premium_until": None,
+                            "running": 0
+                        }
+                    )
                     try:
-                        await bot.send_message(u["user_id"], "❌ Premium expired. You are now Free user.")
-                    except: pass
+                        await bot.send_message(
+                            u["user_id"],
+                            "❌ Premium expired.\nYou are now a Free user."
+                        )
+                    except:
+                        pass
+
+        except Exception as e:
+            print("PREMIUM WATCHER ERROR:", e)
 # ===== PROFILE =====
 async def profile_cmd(e):
     uid = e.sender_id
