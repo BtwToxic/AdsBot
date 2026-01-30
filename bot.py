@@ -51,7 +51,6 @@ def approved(uid):
         return False
 
     until = u.get("premium_until")
-
     try:
         return until and float(until) > datetime.now(IST).timestamp()
     except Exception:
