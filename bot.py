@@ -335,17 +335,18 @@ async def gen_key(e):
     if len(parts) < 2 or not parts[1].isdigit():
         return await e.reply("❌ Usage: /key <seconds>")
 
-    sec = int(parts[1])  # simple seconds input
-    key = secrets.token_hex(8)  # random 16-char hex key
+    sec = int(parts[1])
+    key = secrets.token_hex(8)
 
-    # Use datetime object for timestamp calculations
-    expiry_ts = datetime.now(IST).timestamp() + sec
-    save_key(key, expiry_ts)
+    # ❌ timestamp mat bhejo
+    # ✅ sirf seconds bhejo
+    save_key(key, sec)
 
-    # Display current time in IST
-    current_time = datetime.now(IST).strftime("%d-%m-%Y %I:%M:%S %p")
-    await e.reply(f"🔑 KEY: `{key}`\nValid for: {sec} seconds\n🕒 {current_time}")
-    
+    await e.reply(
+        f"🔑 KEY: `{key}`\n"
+        f"⏱ Duration: {sec} seconds\n"
+        f"⚠️ Timer starts AFTER redeem"
+    )
 # ====== REDEEM ======
 @bot.on(events.NewMessage(pattern="/redeem"))
 async def redeem_key(e):
@@ -360,13 +361,11 @@ async def redeem_key(e):
         return await e.reply("❌ Invalid / expired / old-format key")
 
     now = datetime.now(IST).timestamp()
-
-    # ✅ duration is always seconds now
     premium_until = now + int(k["duration"])
 
     user_update(e.sender_id, {
-        "approved": 1,
-        "premium_until": premium_until
+    "approved": 1,
+    "premium_until": premium_until
     })
 
     use_key(key)
