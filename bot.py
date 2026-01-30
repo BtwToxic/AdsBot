@@ -197,16 +197,43 @@ async def callbacks(e):
 
     fe = FE()
 
-    if data == "add": await add_account_cmd(fe)
-    elif data == "set": await set_msg(fe)
-    elif data == "time": await set_time_inline(uid)
-    elif data == "list": await list_acc(fe)
-    elif data == "send": await start_ads(fe)
-    elif data == "stop": await stop_ads(fe)
-    elif data == "profile": await profile_cmd(fe)
-    elif data == "help": await help_cmd(fe)
-    elif data == "pay": await payment_screen(uid)
-    elif data == "paid": await ask_txn_id(uid)
+    if data == "add":
+        await add_account_cmd(fe)
+
+    elif data == "set":
+        await set_msg(fe)
+
+    elif data == "time":
+        await set_time_inline(uid)
+
+    elif data == "list":
+        await list_acc(fe)
+
+    elif data == "send":
+        await start_ads(fe)
+
+    elif data == "stop":
+        await stop_ads(fe)
+
+    elif data == "profile":
+        await profile_cmd(fe)
+
+    elif data == "help":
+        await help_cmd(fe)
+
+    elif data == "pay":
+        await payment_screen(uid)
+
+    elif data == "paid":
+        await ask_txn_id(uid)
+
+    elif data.startswith("pay_ok:"):
+        uid2 = int(data.split(":")[1])
+        await approve_payment(uid2)
+
+    elif data.startswith("pay_no:"):
+        uid2 = int(data.split(":")[1])
+        await ask_reject_reason(uid2)
         
 # ===== ADD ACCOUNT =====
 async def add_account_cmd(e):
