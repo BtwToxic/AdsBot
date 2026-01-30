@@ -145,6 +145,27 @@ async def send_to_admin(user_id, txn_id, ss_msg):
 
     await ss_msg.forward_to(ADMIN_ID)
 
+async def approve_payment(uid):
+    now = datetime.now(IST).timestamp()
+    premium_until = now + (30 * 24 * 60 * 60)
+
+    user_update(uid, {
+        "approved": 1,
+        "premium_until": premium_until
+    })
+
+    await bot.send_message(
+        uid,
+        "✅ **Premium Activated!**\n\n"
+        "⏱ Valid for 30 Days\n"
+        "🚀 Enjoy Premium Features"
+    )
+
+    await bot.send_message(
+        ADMIN_ID,
+        f"✅ User `{uid}` approved for 30 days"
+    )
+
 
 # ===== CALLBACKS (FIXED – NO BLOCK) =====
 @bot.on(events.CallbackQuery)
