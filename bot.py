@@ -250,57 +250,81 @@ async def callbacks(e):
 async def add_account_cmd(e):
     uid = e.sender_id
 
-    # Free / Premium limit check
     if not can_add_account(uid):
         return await bot.send_message(
             uid,
-            "**Free User Limit Reached**\nYou can add only 1 account.\n💳 Buy Premium for Unlimited Accounts."
+            "❌ **Free User Limit Reached**\nBuy Premium for Unlimited Accounts."
         )
 
     if uid in active_conv:
         return
     active_conv.add(uid)
 
-    client = None
+    client = TelegramClient(StringSession(), API_ID, API_HASH)
+
     try:
         async with bot.conversation(uid, timeout=300) as conv:
-            await conv.send_message("📱 Send Phone Number (with +91):")
+            await conv.send_message("📱 Send Phone Number (with country code)\nExample: `+91xxxxxxxxxx`")
             phone = (await conv.get_response()).text.strip()
 
-            # User client only
-            client = TelegramClient(StringSession(), API_ID, API_HASH)
             await client.connect()
 
-            # OTP request safely
+            # ===== SEND OTP =====
             try:
-                await client.send_code_request(phone)
+                await client.send_code_request(phone, force_sms=False)
+            except FloodWaitError as fw:
+                await conv.send_message(
+                    f"⏳ **Too many attempts**\nTry again after `{fw.seconds}` seconds."
+                )
+                return
+            except PhoneNumberBannedError:
+                await conv.send_message("🚫 **This number is banned by Telegram**")
+                return
+            except PhoneNumberInvalidError:
+                await conv.send_message("❌ **Invalid phone number format**")
+                return
             except Exception as er:
-                await conv.send_message(f"❌ Could not send OTP: {er}")
+                await conv.send_message(
+                    "❌ **OTP not sent**\n\n"
+                    "Possible reasons:\n"
+                    "• Too many OTP attempts\n"
+                    "• VPS IP blocked\n"
+                    "• Number recently used\n\n"
+                    f"Error: `{er}`"
+                )
                 return
 
-            await conv.send_message("🔐 Send OTP (format: 1 2 3 4 5):")
-            otp = (await conv.get_response()).text.strip()
+            # ===== OTP INPUT =====
+            await conv.send_message("🔐 Send OTP (example: `1 2 3 4 5`)")
+            otp = (await conv.get_response()).text.replace(" ", "")
 
             try:
                 await client.sign_in(phone=phone, code=otp)
+            except PhoneCodeInvalidError:
+                await conv.send_message("❌ **Wrong OTP**")
+                return
+            except PhoneCodeExpiredError:
+                await conv.send_message("⌛ **OTP expired, try again**")
+                return
             except SessionPasswordNeededError:
-                await conv.send_message("🔑 2FA Enabled, send your password:")
+                await conv.send_message("🔑 **2FA Enabled**\nSend your Telegram password:")
                 pwd = (await conv.get_response()).text.strip()
                 await client.sign_in(password=pwd)
             except Exception as er:
-                await conv.send_message(f"❌ Sign in failed: {er}")
+                await conv.send_message(f"❌ Login failed: `{er}`")
                 return
 
+            # ===== SAVE =====
             add_account(uid, phone, client.session.save())
-            await conv.send_message(f"✅ Account Added: `{phone}`")
+            await conv.send_message(f"✅ **Account Added Successfully**\n📱 `{phone}`")
 
     except TimeoutError:
-        await bot.send_message(uid, "⏳ Time out! Try again.")
+        await bot.send_message(uid, "⏳ Time out! Start again.")
+
     finally:
         active_conv.discard(uid)
-        if client:
-            await client.disconnect()
-
+        await client.disconnect()
+        
 # ===== SET MESSAGE =====
 async def set_msg(e):
     async with bot.conversation(e.sender_id, timeout=300) as conv:
