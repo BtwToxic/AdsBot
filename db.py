@@ -3,6 +3,7 @@ from config import MONGO_URL
 from datetime import datetime
 import pytz
 
+# ===== DB CONNECT =====
 mongo = MongoClient(MONGO_URL)
 db = mongo.adsbot
 
@@ -12,12 +13,16 @@ keys = db.keys
 
 IST = pytz.timezone("Asia/Kolkata")
 
-# ===== USERS =====
+# ======================================================
+# USERS
+# ======================================================
 def user_insert(uid):
     users.update_one(
         {"user_id": uid},
         {"$setOnInsert": {
+            "user_id": uid,
             "approved": 0,
+            "premium_until": None,
             "message": "",
             "delay": 10,
             "running": 0,
@@ -37,7 +42,12 @@ def user_update(uid, data: dict):
         {"$set": data}
     )
 
-# ===== ACCOUNTS =====
+def db_all_users():
+    return list(users.find())
+
+# ======================================================
+# ACCOUNTS
+# ======================================================
 def add_account(uid, phone, session):
     accounts.insert_one({
         "owner": uid,
@@ -56,30 +66,40 @@ def remove_account(uid, idx):
     accounts.delete_one({"_id": acc["_id"]})
     return acc["phone"]
 
-# ===== KEYS =====
+# ======================================================
+# PREMIUM KEYS (DURATION BASED)
+# ======================================================
 def save_key(key, duration):
+    """
+    duration = seconds
+    timer starts AFTER redeem
+    """
     keys.insert_one({
         "key": key,
         "duration": int(duration),
-        "used": False
+        "used": False,
+        "created_at": datetime.now(IST).timestamp()
     })
-    
+
 def get_key(key):
+    """
+    returns valid unused key
+    """
     k = keys.find_one({"key": key, "used": False})
     if not k:
         return None
 
-    if "expiry" in k:
-        return None
-
+    # old broken keys protection
     if "duration" not in k:
         return None
 
     return k
 
 def use_key(key):
-    """Mark key as used"""
-    keys.update_one({"key": key}, {"$set": {"used": True}})
-
-def db_all_users():
-    return list(users_collection.find())
+    keys.update_one(
+        {"key": key},
+        {"$set": {
+            "used": True,
+            "used_at": datetime.now(IST).timestamp()
+        }}
+            )
