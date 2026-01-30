@@ -7,7 +7,13 @@ from asyncio import TimeoutError
 
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
-from telethon.errors import SessionPasswordNeededError
+from telethon.errors import (
+    FloodWaitError,
+    PhoneNumberBannedError,
+    PhoneNumberInvalidError,
+    PhoneCodeInvalidError,
+    PhoneCodeExpiredError
+)
 
 from config import *
 from db import (
