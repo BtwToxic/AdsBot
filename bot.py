@@ -166,6 +166,22 @@ async def approve_payment(uid):
         f"✅ User `{uid}` approved for 30 days"
     )
 
+async def ask_reject_reason(uid):
+    async with bot.conversation(ADMIN_ID, timeout=300) as conv:
+        await conv.send_message("❌ Enter reject reason:")
+        reason = (await conv.get_response()).text
+
+        await bot.send_message(
+            uid,
+            f"❌ **Payment Rejected**\n\n"
+            f"📄 Reason: {reason}\n\n"
+            "Please contact admin."
+        )
+
+        await bot.send_message(
+            ADMIN_ID,
+            f"❌ Payment rejected for `{uid}`\nReason: {reason}"
+        )
 
 # ===== CALLBACKS (FIXED – NO BLOCK) =====
 @bot.on(events.CallbackQuery)
