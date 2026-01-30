@@ -474,13 +474,13 @@ async def redeem_key(e):
     premium_until = now + int(k["duration"])
 
     user_update(
-    u["user_id"],
-    {
-        "approved": 0,
-        "premium_until": None,
-        "running": 0   
-    }
+        e.sender_id,
+        {
+            "approved": 1,
+            "premium_until": premium_until
+        }
     )
+
     use_key(key)
 
     await e.reply(
