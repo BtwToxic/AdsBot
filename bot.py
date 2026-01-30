@@ -167,7 +167,8 @@ async def callbacks(e):
     elif data == "profile": await profile_cmd(fe)
     elif data == "help": await help_cmd(fe)
     elif data == "pay": await payment_screen(uid)
-
+    elif data == "paid": await ask_txn_id(uid)
+        
 # ===== ADD ACCOUNT =====
 async def add_account_cmd(e):
     uid = e.sender_id
