@@ -418,5 +418,6 @@ async def help_cmd(e):
         "• /remove <account_number>\n\n"
         "⚠️ **ADMIN**: @BlazeNXT"
     )
-
+    
+bot.loop.create_task(premium_watcher())
 bot.run_until_disconnected()
