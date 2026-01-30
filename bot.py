@@ -114,6 +114,7 @@ async def payment_screen(uid):
         "qr.png",
         caption=(
             "💳 **Buy Premium (30 Days)**\n\n"
+            "🔹 PRICE: ₹99\n"
             f"🔹 UPI ID: `{UPI_ID}`\n"
             "🔹 Scan QR & Pay\n\n"
             "Payment ke baad **Paid ✅** button dabaye"
@@ -133,6 +134,11 @@ async def ask_txn_id(uid):
 
         await send_to_admin(uid, txn, ss)
 
+        await conv.send_message(
+            "⏳ **Please wait for admin approval**\n\n"
+            "You will be notified once approved or rejected."
+        )
+        
 async def send_to_admin(user_id, txn_id, ss_msg):
     await bot.send_message(
         ADMIN_ID,
@@ -179,7 +185,8 @@ async def ask_reject_reason(uid):
             uid,
             f"❌ **Payment Rejected**\n\n"
             f"📄 Reason: {reason}\n\n"
-            "Please contact admin."
+            "Please contact admin.\n"
+            "@BlazeNXT"
         )
 
         await bot.send_message(
@@ -247,7 +254,7 @@ async def add_account_cmd(e):
     if not can_add_account(uid):
         return await bot.send_message(
             uid,
-            "❌ **Free User Limit Reached**\nYou can add only 1 account.\n💳 Buy Premium for Unlimited Accounts."
+            "**Free User Limit Reached**\nYou can add only 1 account.\n💳 Buy Premium for Unlimited Accounts."
         )
 
     if uid in active_conv:
@@ -451,8 +458,6 @@ async def gen_key(e):
     sec = int(parts[1])
     key = secrets.token_hex(8)
 
-    # ❌ timestamp mat bhejo
-    # ✅ sirf seconds bhejo
     save_key(key, sec)
 
     await e.reply(
@@ -517,7 +522,7 @@ async def premium_watcher():
                     try:
                         await bot.send_message(
                             u["user_id"],
-                            "❌ Premium expired.\nYou are now a Free user."
+                            "**Premium expired**\n\nYou are now a Free user."
                         )
                     except:
                         pass
@@ -528,7 +533,7 @@ async def premium_watcher():
 async def profile_cmd(e):
     uid = e.sender_id
     u = user_get(uid) or {}
-    status = "✅ Approved" if u.get("approved") else "❌ Not Approved"
+    status = "Premium User" if u.get("approved") else "Free User"
     await e.reply(
         f"👤 **Your Profile**\n\n"
         f"• ID: `{uid}`\n"
